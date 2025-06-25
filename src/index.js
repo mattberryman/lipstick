@@ -1,5 +1,5 @@
-const API_HOST = "us.i.posthog.com" // Change to "eu.i.posthog.com" for the EU region
-const ASSET_HOST = "us-assets.i.posthog.com" // Change to "eu-assets.i.posthog.com" for the EU region
+const API_HOST = "eu.i.posthog.com"
+const ASSET_HOST = "eu-assets.i.posthog.com"
 
 async function handleRequest(request, ctx) {
   const url = new URL(request.url)
