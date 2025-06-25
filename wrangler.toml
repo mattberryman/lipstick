@@ -1,0 +1,9 @@
+name = "posthog-reverse-proxy"
+main = "src/index.js"
+compatibility_date = "2024-06-01"
+
+[env.production]
+name = "posthog-reverse-proxy-prod"
+
+[env.staging]
+name = "posthog-reverse-proxy-staging"

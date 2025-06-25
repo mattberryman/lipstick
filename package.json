@@ -1,0 +1,16 @@
+{
+  "name": "posthog-reverse-proxy",
+  "version": "1.0.0",
+  "description": "Cloudflare Worker to act as PostHog reverse proxy",
+  "main": "src/index.js",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "wrangler": "^3.0.0"
+  },
+  "keywords": ["cloudflare", "worker", "posthog", "reverse-proxy"],
+  "author": "",
+  "license": "MIT"
+}
