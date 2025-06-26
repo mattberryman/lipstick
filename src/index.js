@@ -22,7 +22,7 @@
       allowOrigin = 'https://takebackcontrol.moi';
     }
 
-    // Handle CORS preflight requests - minimal Safari-compatible headers
+    // Handle CORS preflight requests
     if (request.method === 'OPTIONS') {
       return new Response(null, {
         status: 200,
@@ -42,7 +42,7 @@
     const search = url.search;
     const pathWithParams = pathname + search;
 
-    // Determine the host based on the path (PostHog's exact routing logic)
+    // Determine the host based on the path
     let targetHost;
     if (pathname.startsWith("/static/")) {
       targetHost = ASSET_HOST;
@@ -57,14 +57,19 @@
 
   async function forwardRequest(request, targetHost, pathWithParams, 
   allowOrigin) {
-    const originRequest = new Request(request);
-
     try {
-      const response = await fetch(`https://${targetHost}${pathWithParams}`,
-  originRequest);
+      // Clone the request properly for forwarding
+      const modifiedRequest = new
+  Request(`https://${targetHost}${pathWithParams}`, {
+        method: request.method,
+        headers: request.headers,
+        body: request.method !== 'GET' && request.method !== 'HEAD' ? await
+  request.blob() : null
+      });
 
-      // Create new response with minimal CORS headers for Safari 
-  compatibility
+      const response = await fetch(modifiedRequest);
+
+      // Create new response with CORS headers
       const newResponse = new Response(response.body, {
         status: response.status,
         statusText: response.statusText,
@@ -79,10 +84,12 @@
 
       return newResponse;
     } catch (error) {
-      // Return proper error response with CORS headers
+      // Return detailed error for debugging
       return new Response(JSON.stringify({
         error: 'Proxy request failed',
-        message: error.message
+        message: error.message,
+        target: `https://${targetHost}${pathWithParams}`,
+        method: request.method
       }), {
         status: 502,
         headers: {
