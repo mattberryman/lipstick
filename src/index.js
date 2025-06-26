@@ -1,4 +1,4 @@
-  const API_HOST = "eu.i.posthog.com";
+const API_HOST = "eu.i.posthog.com";
   const ASSET_HOST = "eu-assets.i.posthog.com";
   const DECIDE_HOST = "eu.i.posthog.com";
 
@@ -22,16 +22,43 @@
       allowOrigin = 'https://takebackcontrol.moi';
     }
 
-    // Handle CORS preflight requests
+    // Handle CORS preflight requests with comprehensive headers
     if (request.method === 'OPTIONS') {
       return new Response(null, {
         status: 200,
         headers: {
           'Access-Control-Allow-Origin': allowOrigin,
-          'Access-Control-Allow-Methods': 'GET, POST, OPTIONS, PUT, DELETE',
-          'Access-Control-Allow-Headers': 'Content-Type, Authorization, User-Agent, X-Requested-With',
+          'Access-Control-Allow-Methods': 'GET, POST, OPTIONS, PUT, DELETE, HEAD',
+          'Access-Control-Allow-Headers': [
+            'Content-Type',
+            'Authorization',
+            'User-Agent',
+            'X-Requested-With',
+            'Accept',
+            'Accept-Encoding',
+            'Accept-Language',
+            'Cache-Control',
+            'Connection',
+            'DNT',
+            'Host',
+            'Origin',
+            'Referer',
+            'Sec-Fetch-Dest',
+            'Sec-Fetch-Mode',
+            'Sec-Fetch-Site',
+            'X-PostHog-LIB',
+            'X-PostHog-LIB-Version'
+          ].join(', '),
           'Access-Control-Allow-Credentials': 'true',
           'Access-Control-Max-Age': '86400',
+          'Access-Control-Expose-Headers': [
+            'Content-Length',
+            'Content-Type',
+            'Date',
+            'Server',
+            'X-RateLimit-Limit',
+            'X-RateLimit-Remaining'
+          ].join(', '),
           'Vary': 'Origin'
         }
       });
@@ -53,15 +80,23 @@
       targetHost = API_HOST;
     }
 
-    return forwardRequest(request, targetHost, pathWithParams, allowOrigin, ctx);
+    return forwardRequest(request, targetHost, pathWithParams, allowOrigin,
+  ctx);
   }
 
-  async function forwardRequest(request, targetHost, pathWithSearch, allowOrigin, ctx) {
-    const originRequest = new Request(request);
+  async function forwardRequest(request, targetHost, pathWithSearch, 
+  allowOrigin, ctx) {
+    // Clone the request but preserve all headers for PostHog
+    const originRequest = new Request(request, {
+      method: request.method,
+      headers: request.headers,
+      body: request.method !== 'GET' && request.method !== 'HEAD' ?
+  request.body : null
+    });
 
     // For caching static assets, add cache handling
-    if (targetHost === ASSET_HOST) {
-      const response = await caches.default.match(request);
+    if (targetHost === ASSET_HOST && request.method === 'GET') {
+      let response = await caches.default.match(request);
       if (response) {
         // Add CORS headers to cached response
         const newResponse = new Response(response.body, {
@@ -75,7 +110,8 @@
     }
 
     try {
-      const response = await fetch(`https://${targetHost}${pathWithSearch}`, originRequest);
+      const response = await fetch(`https://${targetHost}${pathWithSearch}`,
+  originRequest);
 
       // Create new response with proper CORS headers for credentials
       const newResponse = new Response(response.body, {
@@ -87,36 +123,69 @@
       addCorsHeaders(newResponse, allowOrigin);
 
       // Cache static assets for better performance
-      if (targetHost === ASSET_HOST && response.ok) {
+      if (targetHost === ASSET_HOST && response.ok && request.method ===
+  'GET') {
         ctx.waitUntil(caches.default.put(request, response.clone()));
       }
 
       return newResponse;
     } catch (error) {
-      // Return proper error response with CORS headers
-      return new Response(JSON.stringify({
+      // Return proper error response with CORS headers and debugging info
+      const errorResponse = {
         error: 'Proxy request failed',
         message: error.message,
         target: targetHost,
-        path: pathWithSearch
-      }), {
+        path: pathWithSearch,
+        method: request.method,
+        timestamp: new Date().toISOString()
+      };
+
+      return new Response(JSON.stringify(errorResponse, null, 2), {
         status: 502,
         headers: {
           'Content-Type': 'application/json',
           'Access-Control-Allow-Origin': allowOrigin,
           'Access-Control-Allow-Credentials': 'true',
+          'Access-Control-Expose-Headers': 'Content-Type, Content-Length',
           'Vary': 'Origin'
         }
       });
     }
   }
 
-  // Helper function to add CORS headers consistently
+  // Helper function to add comprehensive CORS headers
   function addCorsHeaders(response, allowOrigin) {
     response.headers.set('Access-Control-Allow-Origin', allowOrigin);
-    response.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, DELETE');
-    response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, User-Agent, X-Requested-With');
+    response.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, DELETE, HEAD');
+    response.headers.set('Access-Control-Allow-Headers', [
+      'Content-Type',
+      'Authorization',
+      'User-Agent',
+      'X-Requested-With',
+      'Accept',
+      'Accept-Encoding',
+      'Accept-Language',
+      'Cache-Control',
+      'Connection',
+      'DNT',
+      'Host',
+      'Origin',
+      'Referer',
+      'Sec-Fetch-Dest',
+      'Sec-Fetch-Mode',
+      'Sec-Fetch-Site',
+      'X-PostHog-LIB',
+      'X-PostHog-LIB-Version'
+    ].join(', '));
     response.headers.set('Access-Control-Allow-Credentials', 'true');
+    response.headers.set('Access-Control-Expose-Headers', [
+      'Content-Length',
+      'Content-Type',
+      'Date',
+      'Server',
+      'X-RateLimit-Limit',
+      'X-RateLimit-Remaining'
+    ].join(', '));
     response.headers.set('Vary', 'Origin');
   }
 
