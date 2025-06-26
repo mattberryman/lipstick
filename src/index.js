@@ -8,7 +8,8 @@
     const allowedOrigins = [
       'https://takebackcontrol.moi',    // staging
       'https://takebackcontrol.me',     // production
-      'http://localhost:3000'          // local development
+      'http://localhost:3000',          // local development
+      'https://localhost:3000'          // local development with SSL
     ]
 
     // Determine which origin to allow - must be specific for credentials
@@ -17,7 +18,7 @@
       allowOrigin = origin
     } else {
       // Fallback to staging domain if no valid origin (for direct requests)
-      allowOrigin = 'https://takebackcontrol.me'
+      allowOrigin = 'https://takebackcontrol.moi'
     }
 
     // Handle CORS preflight requests
@@ -40,9 +41,13 @@
     const search = url.search
     const pathWithParams = pathname + search
 
+    // Route static assets to asset host
     if (pathname.startsWith("/static/")) {
       return retrieveStatic(request, pathWithParams, ctx, allowOrigin)
-    } else {
+    }
+    // Route ALL other PostHog endpoints to API host
+    // This includes: /s/, /decide/, /e/, /engage/, /batch/, /capture/, etc.
+    else {
       return forwardRequest(request, pathWithParams, allowOrigin)
     }
   }
@@ -73,7 +78,7 @@
 
   async function forwardRequest(request, pathWithSearch, allowOrigin) {
     const originRequest = new Request(request)
-    // Don't delete cookies - PostHog might need them for session tracking
+    // Keep cookies for PostHog session tracking
     // originRequest.headers.delete("cookie")
 
     try {
